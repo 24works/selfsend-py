@@ -2,7 +2,7 @@
 # 因此不声明任何卷；全部配置直接写在下方 environment 中。
 services:
   selfsend:
-    image: ghcr.io/<owner>/selfsend:latest
+    image: ghcr.io/24works/selfsend:latest
     container_name: selfsend
     restart: unless-stopped
     environment:
