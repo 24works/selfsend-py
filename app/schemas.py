@@ -18,6 +18,11 @@ def _coerce_address_list(value: object) -> list[str]:
     raise ValueError("expected a string or a list of strings")
 
 
+def _preview(value: object, limit: int = 200) -> str:
+    text = repr(value)
+    return text[:limit] + "..." if len(text) > limit else text
+
+
 class Attachment(BaseModel):
     filename: str
     content: str
@@ -52,7 +57,9 @@ class SendEmailRequest(BaseModel):
     def _coerce_to(cls, value: object) -> list[str]:
         items = _coerce_address_list(value)
         if not items:
-            raise ValueError("'to' must contain at least one recipient")
+            raise ValueError(
+                f"'to' must contain at least one valid recipient (got: {_preview(value)})"
+            )
         return items
 
     @field_validator("cc", "bcc", "reply_to", mode="before")

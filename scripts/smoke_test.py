@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 PORT = 8799
-SMTP_PORT = 1025
+SMTP_PORT = 11025
 KEY = "re_smoketest_key_0123456789abcdef"
 
 os.environ.update(

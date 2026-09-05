@@ -56,12 +56,31 @@ def _snippet(value: object, limit: int = 500) -> str:
     return text
 
 
+_REDACTED_HEADERS = {"authorization", "cookie", "x-api-key"}
+
+
+def _format_headers(request: Request) -> str:
+    parts = []
+    for name, value in sorted(request.headers.items()):
+        display = "***REDACTED***" if name.lower() in _REDACTED_HEADERS else value
+        parts.append(f"{name}: {display}")
+    return "\n    ".join(parts)
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @app.exception_handler(ApiError)
 async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
     logger.warning(
-        "api error %s %s -> %s %s: %s",
+        "api error %s %s from %s -> %s %s: %s",
         request.method,
         request.url.path,
+        _client_ip(request),
         exc.status,
         exc.name,
         exc.message,
@@ -80,13 +99,18 @@ async def validation_error_handler(
         f"{'.'.join(str(loc) for loc in error['loc'])}: {error['msg']}"
         for error in exc.errors()[:5]
     )
+    raw_body = await request.body()
     logger.warning(
-        "validation failed %s %s (content-type=%s): %s | body=%s",
+        "validation failed %s %s from %s\n"
+        "    --- headers ---\n    %s\n"
+        "    --- validation errors ---\n    %s\n"
+        "    --- raw body ---\n    %s",
         request.method,
         request.url.path,
-        request.headers.get("content-type", ""),
+        _client_ip(request),
+        _format_headers(request),
         summary,
-        _snippet(getattr(exc, "body", None)),
+        raw_body.decode(errors="replace"),
     )
     return JSONResponse(
         status_code=422,
