@@ -49,8 +49,23 @@ app = FastAPI(
 )
 
 
+def _snippet(value: object, limit: int = 500) -> str:
+    text = value.decode(errors="replace") if isinstance(value, bytes) else str(value)
+    if len(text) > limit:
+        return text[:limit] + "..."
+    return text
+
+
 @app.exception_handler(ApiError)
-async def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
+async def api_error_handler(request: Request, exc: ApiError) -> JSONResponse:
+    logger.warning(
+        "api error %s %s -> %s %s: %s",
+        request.method,
+        request.url.path,
+        exc.status,
+        exc.name,
+        exc.message,
+    )
     return JSONResponse(
         status_code=exc.status,
         content={"name": exc.name, "message": exc.message},
@@ -59,11 +74,19 @@ async def api_error_handler(_: Request, exc: ApiError) -> JSONResponse:
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(
-    _: Request, exc: RequestValidationError
+    request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     summary = "; ".join(
         f"{'.'.join(str(loc) for loc in error['loc'])}: {error['msg']}"
         for error in exc.errors()[:5]
+    )
+    logger.warning(
+        "validation failed %s %s (content-type=%s): %s | body=%s",
+        request.method,
+        request.url.path,
+        request.headers.get("content-type", ""),
+        summary,
+        _snippet(getattr(exc, "body", None)),
     )
     return JSONResponse(
         status_code=422,
